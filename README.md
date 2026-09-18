@@ -1,5 +1,7 @@
 # 🤖 RAG Telegram Bot
 
+[![CI](https://github.com/MrAlexGov/RAG-Telegram-Bot/actions/workflows/ci.yml/badge.svg)](https://github.com/MrAlexGov/RAG-Telegram-Bot/actions/workflows/ci.yml)
+
 AI-ассистент в Telegram с локальными моделями через Ollama. Использует Retrieval-Augmented Generation (RAG) архитектуру для обработки документов и ответа на вопросы.
 
 ## 📋 Описание
@@ -312,6 +314,16 @@ WEBHOOK_PORT=8443
 3. Commit изменения: `git commit -am 'Add new feature'`
 4. Push в branch: `git push origin feature/new-feature`
 5. Создайте Pull Request
+
+## 🧪 Тесты
+
+Юнит-тесты для конфигурации + проверка синтаксиса всех модулей (без необходимости
+разворачивать Ollama/Qdrant в CI):
+
+```bash
+pip install -r requirements-test.txt
+pytest tests/ -v
+```
 
 ## 📄 Лицензия
 
