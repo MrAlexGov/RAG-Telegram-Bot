@@ -5,7 +5,7 @@ from typing import List, Dict, Any
 from telegram import Update, Document
 from telegram.ext import Application, CommandHandler, MessageHandler, filters, ContextTypes
 from rag_pipeline import RAGPipeline
-from config import TELEGRAM_BOT_TOKEN, CHAT_SYSTEM_PROMPT, MAX_HISTORY_LENGTH
+from config import TELEGRAM_BOT_TOKEN, CHAT_SYSTEM_PROMPT, MAX_HISTORY_LENGTH, RAG_BACKEND
 
 # Добавлена поддержка вебхуков для развертывания на сервере
 import ssl
@@ -20,7 +20,11 @@ logger = logging.getLogger(__name__)
 
 class RAGTelegramBot:
     def __init__(self):
-        self.rag_pipeline = RAGPipeline()
+        if RAG_BACKEND == "llamaindex":
+            from llamaindex_pipeline import LlamaIndexRAG
+            self.rag_pipeline = LlamaIndexRAG()
+        else:
+            self.rag_pipeline = RAGPipeline()
         self.user_sessions = {}  # Для хранения сессий пользователей
         self.chat_histories = {}  # Для хранения истории чатов
 

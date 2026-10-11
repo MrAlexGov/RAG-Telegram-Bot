@@ -17,6 +17,14 @@ QDRANT_API_KEY = os.getenv('QDRANT_API_KEY', '')
 EMBEDDING_MODEL = "nomic-embed-text"
 LLM_MODEL = "qwen2:7b"
 
+# RAG backend: "langchain" (исходный пайплайн) или "llamaindex" (llamaindex_pipeline.py)
+RAG_BACKEND = os.getenv('RAG_BACKEND', 'langchain')
+
+# Реранкинг: пусто = выключен; иначе имя cross-encoder модели (напр. BAAI/bge-reranker-v2-m3)
+RERANKER_MODEL = os.getenv('RERANKER_MODEL', '')
+RERANK_CANDIDATES = int(os.getenv('RERANK_CANDIDATES', '20'))  # сколько достаём из Qdrant до реранкинга
+TOP_K = int(os.getenv('TOP_K', '3'))  # сколько чанков уходит в промпт
+
 # Text Processing
 CHUNK_SIZE = 1000
 CHUNK_OVERLAP = 200

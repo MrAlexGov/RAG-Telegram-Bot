@@ -10,6 +10,7 @@ from qdrant_client.models import Distance, VectorParams, PointStruct
 import ollama
 from sentence_transformers import SentenceTransformer
 import numpy as np
+from config import RERANKER_MODEL, RERANK_CANDIDATES, TOP_K
 
 class RAGPipeline:
     def __init__(self):
@@ -28,6 +29,11 @@ class RAGPipeline:
             chunk_overlap=200,
             length_function=len,
         )
+
+        self.reranker = None
+        if RERANKER_MODEL:
+            from reranker import CrossEncoderReranker
+            self.reranker = CrossEncoderReranker(RERANKER_MODEL)
 
 
     def _init_vector_db(self):
@@ -196,7 +202,11 @@ class RAGPipeline:
     def ask_question(self, question: str, user_id: str) -> Dict[str, Any]:
         """Генерация ответа на вопрос с использованием RAG"""
         # Поиск релевантных чанков
-        similar_chunks = self.search_similar(question, limit=3)
+        if self.reranker:
+            # двухэтапный поиск: широкий top-N из Qdrant -> cross-encoder -> top-k
+            similar_chunks = self.reranker(question, self.search_similar(question, limit=RERANK_CANDIDATES), TOP_K)
+        else:
+            similar_chunks = self.search_similar(question, limit=TOP_K)
 
         if not similar_chunks:
             return {
