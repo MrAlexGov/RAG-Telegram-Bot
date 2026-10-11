@@ -1,0 +1,37 @@
+{
+  "embedder": "intfloat/multilingual-e5-base",
+  "reranker": "BAAI/bge-reranker-v2-m3",
+  "candidates": 20,
+  "docs": 100,
+  "questions": 300,
+  "variants": {
+    "langchain": {
+      "chunks": 569,
+      "hit@1": 0.767,
+      "hit@3": 0.813,
+      "mrr@10": 0.791,
+      "seconds": 13.3
+    },
+    "langchain+rerank": {
+      "chunks": 569,
+      "hit@1": 0.813,
+      "hit@3": 0.817,
+      "mrr@10": 0.816,
+      "rerank_seconds": 290.8
+    },
+    "llamaindex": {
+      "chunks": 923,
+      "hit@1": 0.697,
+      "hit@3": 0.787,
+      "mrr@10": 0.743,
+      "seconds": 17.0
+    },
+    "llamaindex+rerank": {
+      "chunks": 923,
+      "hit@1": 0.787,
+      "hit@3": 0.813,
+      "mrr@10": 0.8,
+      "rerank_seconds": 173.6
+    }
+  }
+}

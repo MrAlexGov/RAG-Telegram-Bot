@@ -1,0 +1,54 @@
+{
+  "langchain": {
+    "faithfulness": 0.773,
+    "context_recall": 1.0,
+    "llm_context_precision_with_reference": 0.983,
+    "factual_correctness(mode=recall)": 0.122,
+    "valid": {
+      "faithfulness": 30,
+      "context_recall": 30,
+      "llm_context_precision_with_reference": 30,
+      "factual_correctness(mode=recall)": 30
+    },
+    "n": 30
+  },
+  "langchain+rerank": {
+    "faithfulness": 0.782,
+    "context_recall": 1.0,
+    "llm_context_precision_with_reference": 1.0,
+    "factual_correctness(mode=recall)": 0.1,
+    "valid": {
+      "faithfulness": 30,
+      "context_recall": 30,
+      "llm_context_precision_with_reference": 30,
+      "factual_correctness(mode=recall)": 30
+    },
+    "n": 30
+  },
+  "llamaindex": {
+    "faithfulness": 0.723,
+    "context_recall": 0.967,
+    "llm_context_precision_with_reference": 0.933,
+    "factual_correctness(mode=recall)": 0.158,
+    "valid": {
+      "faithfulness": 30,
+      "context_recall": 30,
+      "llm_context_precision_with_reference": 30,
+      "factual_correctness(mode=recall)": 30
+    },
+    "n": 30
+  },
+  "llamaindex+rerank": {
+    "faithfulness": 0.777,
+    "context_recall": 1.0,
+    "llm_context_precision_with_reference": 1.0,
+    "factual_correctness(mode=recall)": 0.133,
+    "valid": {
+      "faithfulness": 30,
+      "context_recall": 30,
+      "llm_context_precision_with_reference": 30,
+      "factual_correctness(mode=recall)": 30
+    },
+    "n": 30
+  }
+}

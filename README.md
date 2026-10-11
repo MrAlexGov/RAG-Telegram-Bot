@@ -19,8 +19,9 @@ AI-ассистент в Telegram с локальными моделями че�
 - **Telegram Bot API** (python-telegram-bot v20+)
 - **Ollama** (локальные модели)
 - **Qdrant** (векторная база данных)
-- **LangChain** (обработка документов)
-- **Sentence Transformers** (эмбеддинги)
+- **LangChain** (обработка документов) или **LlamaIndex** (альтернативный бэкенд, `RAG_BACKEND=llamaindex`)
+- **Sentence Transformers** (эмбеддинги, cross-encoder реранкер `BAAI/bge-reranker-v2-m3`)
+- **Ragas** + собственные retrieval-метрики (оценка качества, см. «Оценка качества»)
 
 ## 🚀 Быстрый старт
 
@@ -127,7 +128,11 @@ python bot.py
 ```
 rag-telegram-bot/
 ├── bot.py                 # Основной файл Telegram бота
-├── rag_pipeline.py        # RAG пайплайн и обработка документов
+├── rag_pipeline.py        # RAG пайплайн и обработка документов (LangChain)
+├── llamaindex_pipeline.py # тот же интерфейс на LlamaIndex (RAG_BACKEND=llamaindex)
+├── reranker.py           # двухэтапный поиск: Qdrant top-N -> cross-encoder -> top-k
+├── prompts.py            # промпт генерации ответа (общий для бэкендов и eval)
+├── eval/                 # retrieval_eval.py, ragas_eval.py, results/
 ├── config.py             # Конфигурация и переменные окружения
 ├── setup.py              # Скрипт автоматической настройки
 ├── requirements.txt      # Зависимости Python
@@ -150,6 +155,10 @@ TELEGRAM_BOT_TOKEN=ваш_telegram_bot_token
 OLLAMA_BASE_URL=http://localhost:11434    # URL Ollama сервера
 QDRANT_URL=:memory:                       # URL Qdrant (или файловая БД)
 QDRANT_API_KEY=                           # API ключ Qdrant (если нужен)
+RAG_BACKEND=langchain                     # langchain | llamaindex
+RERANKER_MODEL=                           # напр. BAAI/bge-reranker-v2-m3; пусто = без реранкинга
+RERANK_CANDIDATES=20                      # сколько кандидатов достаём из Qdrant до реранкинга
+TOP_K=3                                   # сколько чанков идёт в промпт
 ```
 
 ### Настройки в config.py
@@ -160,6 +169,67 @@ LLM_MODEL = "qwen2:7b"                   # Модель генерации
 CHUNK_SIZE = 1000                        # Размер чанка текста
 CHUNK_OVERLAP = 200                      # Перекрытие чанков
 MAX_TOKENS = 4000                        # Максимум токенов в ответе
+```
+
+## 📈 Оценка качества: реранкер и LangChain vs LlamaIndex
+
+Добавлено 2026-10-11. Вопрос: что даёт cross-encoder реранкер и есть ли разница между LangChain- и
+LlamaIndex-пайплайном на одних и тех же данных.
+
+**Данные.** Русский [SberQuAD](https://huggingface.co/datasets/kuznetsoffandrey/sberquad) (validation):
+500 параграфов Википедии, собранных по 5 в 100 синтетических документов (в датасете нет разбивки по
+статьям, а без многопараграфных документов чанкинг ни на что не влияет), 300 вопросов. Вопрос
+считается найденным на позиции *i*, если *i*-й чанк из нужного документа и содержит эталонный ответ.
+
+**Равные условия.** Один эмбеддер (`intfloat/multilingual-e5-base` с префиксами `query:`/`passage:`),
+Qdrant in-memory, реранкер `BAAI/bge-reranker-v2-m3` по top-20 кандидатов. Отличаются только чанкинг и
+обвязка: LangChain — `RecursiveCharacterTextSplitter(1000/200 символов)`, как в `rag_pipeline.py`;
+LlamaIndex — `SentenceSplitter(256/50 токенов)`. Прогон на Kaggle T4 (`eval/kaggle/run.py`).
+
+| Вариант | Чанков | hit@1 | hit@3 | MRR@10 |
+|---|---|---|---|---|
+| LangChain | 569 | 0.767 | 0.813 | 0.791 |
+| **LangChain + реранкер** | 569 | **0.813** | **0.817** | **0.816** |
+| LlamaIndex | 923 | 0.697 | 0.787 | 0.743 |
+| LlamaIndex + реранкер | 923 | 0.787 | 0.813 | 0.800 |
+
+- **Реранкер поднимает hit@1 на 4.6 п.п. (LangChain) и на 9 п.п. (LlamaIndex)**: правильный чанк чаще
+  оказывается первым, hit@3 почти не меняется — нужное и так было в топе, но не на первом месте.
+- Цена — время: реранкинг 20 кандидатов на T4 ~0.6–1 с на вопрос; на CPU (4 ядра) — 10–20 с, поэтому в
+  боте реранкер выключен по умолчанию и включается `RERANKER_MODEL`.
+- Разница LangChain vs LlamaIndex здесь — это разница **размера чанков**, а не фреймворков: мелкие чанки
+  LlamaIndex (≈ 256 токенов) чаще режут параграф, и ответ уходит в соседний чанк. После реранкинга
+  варианты почти сравниваются.
+- Потолок hit@3 ≈ 0.81 у всех вариантов. Гипотеза (не проверял вручную): критерий строгий — эталонный
+  ответ должен входить в чанк дословно, и часть промахов — это граница чанка или иная форма записи.
+
+**Ragas** (30 вопросов на вариант, генерация промптом бота, судья и генератор — `gpt-oss:120b` через
+LiteLLM-шлюз; все 120 оценок валидны, см. `eval/results/ragas.json`):
+
+| Вариант | Faithfulness | Context recall | Context precision | Factual correctness (recall) |
+|---|---|---|---|---|
+| LangChain | 0.773 | 1.000 | 0.983 | 0.122 |
+| LangChain + реранкер | **0.782** | 1.000 | **1.000** | 0.100 |
+| LlamaIndex | 0.723 | 0.967 | 0.933 | 0.158 |
+| LlamaIndex + реранкер | 0.777 | 1.000 | **1.000** | 0.133 |
+
+Честно о том, что эти цифры говорят и чего не говорят:
+- На 30 вопросах контекстные метрики почти упираются в 1.0 — нужный параграф почти всегда есть в top-3,
+  поэтому Ragas здесь различает варианты слабее, чем hit@1 выше. Реранкер подтягивает precision до 1.0 и
+  заметнее всего помогает LlamaIndex (faithfulness 0.723 → 0.777), но разница в пределах шума для n = 30.
+- **Faithfulness ~0.77 у всех** — промпт бота просит «ответь подробно», и модель добавляет пояснения
+  сверх контекста. Это сигнал поправить промпт, а не retrieval.
+- **Factual correctness непригодна на этих данных**: эталоны SberQuAD — короткие фрагменты («в Древнем
+  Египте»), а ответы — развёрнутые; метрика раскладывает их на утверждения и почти не находит совпадений.
+  Для неё нужен датасет с полными эталонными ответами.
+- Первая попытка прогона на Kaggle Benchmarks proxy упёрлась в квоту, вторая через шлюз ловила его
+  перезапуски — отсюда ретраи и подсчёт валидных оценок в `ragas_eval.py`.
+
+Воспроизвести:
+```bash
+pip install -r eval/requirements.txt
+python eval/retrieval_eval.py --docs 100 --questions 300          # GPU желателен (реранкер)
+EVAL_BASE_URL=... EVAL_API_KEY=... EVAL_MODEL=... python eval/ragas_eval.py --n 30
 ```
 
 ## 🔧 Расширенная настройка

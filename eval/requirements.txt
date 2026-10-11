@@ -1,0 +1,11 @@
+# для eval/retrieval_eval.py и eval/ragas_eval.py
+sentence-transformers
+qdrant-client
+datasets
+langchain-text-splitters
+llama-index-core>=0.14
+llama-index-vector-stores-qdrant
+llama-index-embeddings-huggingface
+ragas
+langchain-openai
+langchain-community<0.4

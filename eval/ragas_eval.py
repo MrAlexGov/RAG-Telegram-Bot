@@ -21,7 +21,7 @@ from ragas.metrics import FactualCorrectness, Faithfulness, LLMContextPrecisionW
 from ragas.run_config import RunConfig
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-from llamaindex_pipeline import PROMPT  # тот же промпт, что у бота
+from prompts import PROMPT  # тот же промпт, что у бота
 
 
 def main():
@@ -43,18 +43,23 @@ def main():
         rows = []
         for it, ctx in zip(qs, data["top3"][v][:a.n]):
             context = "\n\n".join(f"Источник: wiki (страница 0)\nТекст: {c}" for c in ctx)
-            for attempt in range(3):
+            ans = None
+            for attempt in range(8):  # шлюз/прокси иногда перезапускаются — ждём и повторяем
                 try:
                     ans = llm.invoke(PROMPT.format(context=context, question=it["q"])).content
                     break
                 except Exception as e:
-                    print("gen retry", e); time.sleep(10)
+                    print("gen retry", e); time.sleep(20)
+            if ans is None:
+                continue
             rows.append({"user_input": it["q"], "retrieved_contexts": ctx, "response": ans, "reference": it["answer"]})
         r = evaluate(EvaluationDataset.from_list(rows),
                      metrics=[Faithfulness(), LLMContextRecall(), LLMContextPrecisionWithReference(), FactualCorrectness(mode="recall")],
-                     llm=judge, run_config=RunConfig(max_workers=4, timeout=180), show_progress=False)
+                     llm=judge, run_config=RunConfig(max_workers=4, timeout=240, max_retries=10, max_wait=90), show_progress=False)
         df = r.to_pandas()
-        res[v] = {m: round(float(df[m].mean()), 3) for m in df.columns if df[m].dtype.kind == "f"}
+        metric_cols = [m for m in df.columns if df[m].dtype.kind == "f"]
+        res[v] = {m: round(float(df[m].mean()), 3) for m in metric_cols}
+        res[v]["valid"] = {m: int(df[m].notna().sum()) for m in metric_cols}  # NaN = оценка упала, в среднее не входит
         res[v]["n"] = len(rows)
         print(v, res[v], flush=True)
         json.dump(res, open(a.out, "w"), ensure_ascii=False, indent=2)

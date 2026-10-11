@@ -15,17 +15,11 @@ from llama_index.core.node_parser import SentenceSplitter
 from llama_index.vector_stores.qdrant import QdrantVectorStore
 from qdrant_client import QdrantClient
 
+from prompts import PROMPT
 from config import (CHUNK_OVERLAP, CHUNK_SIZE, EMBEDDING_MODEL, LLM_MODEL, OLLAMA_BASE_URL,
                     RERANK_CANDIDATES, RERANKER_MODEL, TOP_K)
 
-PROMPT = """Используй предоставленный контекст, чтобы ответить на вопрос. Если ответа нет в контексте, скажи об этом.
 
-Контекст:
-{context}
-
-Вопрос: {question}
-
-Ответь подробно и информативно, цитируя источники:"""
 
 
 class LlamaIndexRAG:
